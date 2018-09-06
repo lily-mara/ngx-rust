@@ -1,30 +1,32 @@
 extern crate bindgen;
 
-use std::process::Command;
-use std::process::Output;
 use std::env;
 use std::io::Result;
+use std::process::Command;
+use std::process::Output;
 
 #[cfg(target_os = "macos")]
-const NGIX_DIR: &str  = "./nginx/nginx-darwin";
+const NGIX_DIR: &str = "./nginx/nginx-darwin";
 
 #[cfg(target_os = "linux")]
-const NGIX_DIR: &str  = "./nginx/nginx-linux";
+const NGIX_DIR: &str = "./nginx/nginx-linux";
+
+const NGX_VAR_REGEX: &str = "[nN][gG][xX]_.*";
 
 // perform make with argument
 fn make(arg: &str) -> Result<Output> {
     let current_path = env::current_dir().unwrap();
-    let path_name = format!("{}",current_path.display());
-    println!("executing make command at {}",path_name);
-    let result =  Command::new("/usr/bin/make")
+    let path_name = format!("{}", current_path.display());
+    println!("executing make command at {}", path_name);
+    let result = Command::new("/usr/bin/make")
         .args(&[arg])
         .current_dir(path_name)
         .output();
 
-    match result  {
-        Err(e)  =>  {
+    match result {
+        Err(e) => {
             return Err(e);
-        },
+        }
 
         Ok(output) => {
             println!("status: {}", output.status);
@@ -35,13 +37,9 @@ fn make(arg: &str) -> Result<Output> {
     }
 }
 
-
 fn configure() -> Result<Output> {
     make("nginx-setup")
 }
-
-
-
 
 fn generate_binding() {
     let bindings = bindgen::Builder::default()
@@ -56,19 +54,21 @@ fn generate_binding() {
     .clang_arg(format!("-I{}/objs",NGIX_DIR))
     .clang_arg(format!("-I{}/src/http",NGIX_DIR))
     .clang_arg(format!("-I{}/src/http/modules",NGIX_DIR))
+    // Whitelist the nginx types
+    .whitelist_var(NGX_VAR_REGEX)
+    .whitelist_type(NGX_VAR_REGEX)
+    .whitelist_function(NGX_VAR_REGEX)
     // Finish the builder and generate the bindings.
     .generate()
     // Unwrap the Result and panic on failure.
     .expect("Unable to generate bindings");
 
     bindings
-    .write_to_file("src/bindings.rs")
-    .expect("Couldn't write bindings!");
+        .write_to_file("src/bindings.rs")
+        .expect("Couldn't write bindings!");
 }
 
 fn main() {
-
-    configure();
+    configure().expect("failed to configure nginx");
     generate_binding();
-
 }
