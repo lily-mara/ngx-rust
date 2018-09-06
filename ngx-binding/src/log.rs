@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! ngx_debug  {
 
@@ -20,7 +19,6 @@ macro_rules! ngx_http_debug  {
     }
 }
 
-
 #[macro_export]
 macro_rules! ngx_event_debug  {
 
@@ -30,8 +28,3 @@ macro_rules! ngx_event_debug  {
         }
     }
 }
-
-
-
-
-
