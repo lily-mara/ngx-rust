@@ -1,9 +1,22 @@
 extern crate bindgen;
 
 use std::env;
-use std::io::Result;
+use std::io;
+use std::process;
 use std::process::Command;
 use std::process::Output;
+
+#[derive(Debug)]
+enum MakeError {
+    IoError(io::Error),
+    NonZeroExitCode(process::ExitStatus),
+}
+
+impl From<io::Error> for MakeError {
+    fn from(e: io::Error) -> MakeError {
+        MakeError::IoError(e)
+    }
+}
 
 #[cfg(target_os = "macos")]
 const NGIX_DIR: &str = "./nginx/nginx-darwin";
@@ -14,31 +27,27 @@ const NGIX_DIR: &str = "./nginx/nginx-linux";
 const NGX_VAR_REGEX: &str = "[nN][gG][xX]_.*";
 
 // perform make with argument
-fn make(arg: &str) -> Result<Output> {
+fn make(arg: &str) -> Result<Output, MakeError> {
     let current_path = env::current_dir().unwrap();
     let path_name = format!("{}", current_path.display());
     println!("executing make command at {}", path_name);
-    let result = Command::new("/usr/bin/make")
+    let output = Command::new("/usr/bin/make")
         .args(&[arg])
         .current_dir(path_name)
-        .output();
+        .output()?;
 
-    match result {
-        Err(e) => {
-            return Err(e);
-        }
+    println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+    println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
 
-        Ok(output) => {
-            println!("status: {}", output.status);
-            println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-            println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-            return Ok(output);
-        }
+    if !output.status.success() {
+        return Err(MakeError::NonZeroExitCode(output.status));
     }
+
+    return Ok(output);
 }
 
-fn configure() -> Result<Output> {
-    make("nginx-setup")
+fn configure() -> Result<Output, MakeError> {
+    make("nginx-configure")
 }
 
 fn generate_binding() {
