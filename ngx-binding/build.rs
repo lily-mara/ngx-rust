@@ -27,12 +27,12 @@ const NGIX_DIR: &str = "./nginx/nginx-linux";
 const NGX_VAR_REGEX: &str = "[nN][gG][xX]_.*";
 
 // perform make with argument
-fn make(arg: &str) -> Result<Output, MakeError> {
+fn make(args: &[String]) -> Result<Output, MakeError> {
     let current_path = env::current_dir().unwrap();
     let path_name = format!("{}", current_path.display());
     println!("executing make command at {}", path_name);
     let output = Command::new("/usr/bin/make")
-        .args(&[arg])
+        .args(args)
         .current_dir(path_name)
         .output()?;
 
@@ -47,7 +47,32 @@ fn make(arg: &str) -> Result<Output, MakeError> {
 }
 
 fn configure() -> Result<Output, MakeError> {
-    make("nginx-configure")
+    let mut args = vec!["nginx-configure".into()];
+
+    whitelist_env_options(
+        &[
+            "NGX_RUST_NGINX_VERSION",
+            "NGX_RUST_MODULES",
+            "NGX_RUST_LINUX_MODULES",
+            "NGX_RUST_CONFIGURE_OPT",
+            "NGX_RUST_CC_OPT",
+            "NGX_RUST_LD_OPT",
+        ],
+        &mut args,
+    );
+
+    make(&args)
+}
+
+fn whitelist_env_options(keys: &[&str], args: &mut Vec<String>) {
+    for key in keys {
+        if let Ok(value) = env::var(key) {
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                args.push(format!("{}={}", key, trimmed));
+            }
+        }
+    }
 }
 
 fn generate_binding() {
